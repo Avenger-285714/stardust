@@ -1,0 +1,12 @@
+[submodule "Examples/apm-store"]
+	path = Examples/apm-store
+	url = git@gitee.com:spark-store-project/apm-store.git
+	branch = master
+[submodule "Examples/spark-store"]
+	path = Examples/spark-store
+	url = git@gitee.com:spark-store-project/spark-store.git
+	branch = dev
+[submodule "Examples/spark-store-tauri"]
+	path = Examples/spark-store-tauri
+	url = git@gitee.com:spark-store-project/spark-store-tauri.git
+	branch = main
