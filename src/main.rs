@@ -102,10 +102,12 @@ impl Stardust {
                 self.loading = false;
                 match result {
                     Ok(apps) => {
+                        eprintln!("Loaded {} apps successfully", apps.len());
                         self.apps = apps;
                         self.error_message = None;
                     }
                     Err(error) => {
+                        eprintln!("Error loading apps: {}", error);
                         self.error_message = Some(error);
                         self.apps.clear();
                     }
@@ -134,10 +136,12 @@ impl Stardust {
                 self.loading = false;
                 match result {
                     Ok(apps) => {
+                        eprintln!("Search returned {} results", apps.len());
                         self.apps = apps;
                         self.error_message = None;
                     }
                     Err(error) => {
+                        eprintln!("Search error: {}", error);
                         self.error_message = Some(error);
                         self.apps.clear();
                     }

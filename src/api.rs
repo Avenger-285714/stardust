@@ -68,18 +68,22 @@ impl SparkStoreApi {
         
         let url = format!("{}{}/{}/applist.json", self.base_url, self.arch_dir, category);
         
+        eprintln!("Fetching app list from: {}", url);
+        
         let response = reqwest::get(&url)
             .await
-            .map_err(|e| format!("Failed to fetch app list: {}", e))?;
+            .map_err(|e| format!("Failed to fetch app list from {}: {}", url, e))?;
         
         if !response.status().is_success() {
-            return Err(format!("Server returned error: {}", response.status()));
+            return Err(format!("Server returned error {}: {}", response.status(), url));
         }
         
         let apps: Vec<AppInfo> = response
             .json()
             .await
-            .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+            .map_err(|e| format!("Failed to parse JSON from {}: {}", url, e))?;
+        
+        eprintln!("Successfully loaded {} apps from category: {}", apps.len(), category);
         
         Ok(apps)
     }
@@ -89,18 +93,22 @@ impl SparkStoreApi {
         let encoded_keyword = urlencoding::encode(keyword);
         let url = format!("https://search.deepinos.org.cn/appinfo/search?keyword={}", encoded_keyword);
         
+        eprintln!("Searching for: {} at {}", keyword, url);
+        
         let response = reqwest::get(&url)
             .await
-            .map_err(|e| format!("Failed to search: {}", e))?;
+            .map_err(|e| format!("Failed to search at {}: {}", url, e))?;
         
         if !response.status().is_success() {
-            return Err(format!("Search failed: {}", response.status()));
+            return Err(format!("Search failed with status {}: {}", response.status(), url));
         }
         
         let apps: Vec<AppInfo> = response
             .json()
             .await
-            .map_err(|e| format!("Failed to parse search results: {}", e))?;
+            .map_err(|e| format!("Failed to parse search results from {}: {}", url, e))?;
+        
+        eprintln!("Search found {} results for: {}", apps.len(), keyword);
         
         Ok(apps)
     }
