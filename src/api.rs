@@ -61,6 +61,11 @@ impl SparkStoreApi {
     
     /// Fetch application list for a category
     pub async fn fetch_app_list(&self, category: &str) -> Result<Vec<AppInfo>, String> {
+        // Validate category to prevent path traversal
+        if category.contains("..") || category.contains('/') || category.contains('\\') {
+            return Err("Invalid category name".to_string());
+        }
+        
         let url = format!("{}{}/{}/applist.json", self.base_url, self.arch_dir, category);
         
         let response = reqwest::get(&url)

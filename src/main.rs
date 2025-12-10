@@ -93,32 +93,10 @@ impl Stardust {
             Message::CategorySelected(category) => {
                 self.selected_category = category;
                 self.search_query.clear();
-                self.loading = true;
-                self.error_message = None;
-                
-                let api = self.api.clone();
-                let cat = category.to_api_category().to_string();
-                
-                Task::perform(
-                    async move {
-                        api.fetch_app_list(&cat).await
-                    },
-                    Message::AppsLoaded
-                )
+                self.load_category_apps()
             }
             Message::LoadApps => {
-                self.loading = true;
-                self.error_message = None;
-                
-                let api = self.api.clone();
-                let cat = self.selected_category.to_api_category().to_string();
-                
-                Task::perform(
-                    async move {
-                        api.fetch_app_list(&cat).await
-                    },
-                    Message::AppsLoaded
-                )
+                self.load_category_apps()
             }
             Message::AppsLoaded(result) => {
                 self.loading = false;
@@ -171,6 +149,22 @@ impl Stardust {
                 Task::none()
             }
         }
+    }
+    
+    /// Helper method to load apps for the current category
+    fn load_category_apps(&mut self) -> Task<Message> {
+        self.loading = true;
+        self.error_message = None;
+        
+        let api = self.api.clone();
+        let cat = self.selected_category.to_api_category().to_string();
+        
+        Task::perform(
+            async move {
+                api.fetch_app_list(&cat).await
+            },
+            Message::AppsLoaded
+        )
     }
 
     fn view(&self) -> Element<'_, Message> {
