@@ -12,10 +12,13 @@ This project aims to provide a clean, performant, and modern alternative to the 
 
 ## Features
 
-- Modern, responsive UI built with Iced
-- Category-based application browsing
-- Search functionality
-- Cross-platform support (Linux, macOS, Windows)
+- **Modern, responsive UI** built with Iced GUI framework
+- **Real-time data fetching** from Spark Store servers (https://cdn-d.spark-app.store/)
+- **Category-based browsing** with 8 categories (All, Development, Graphics, Office, Games, Multimedia, Network, Utilities)
+- **Search functionality** using Spark Store's search API
+- **Async/await architecture** for non-blocking network operations
+- **Architecture support** for x86_64, aarch64, and loongarch64
+- **Cross-platform** support (Linux, macOS, Windows)
 
 ## Building
 
@@ -62,10 +65,24 @@ cargo test
 
 Stardust follows the Elm architecture pattern used by Iced:
 
-- **State**: The application state (search query, selected category, etc.)
-- **Message**: User actions and events
-- **Update**: State update logic based on messages
+- **State**: The application state (search query, selected category, loaded apps, etc.)
+- **Message**: User actions and events (search, category selection, API responses)
+- **Update**: State update logic based on messages with async Task support
 - **View**: UI rendering based on current state
+
+### API Integration
+
+The application connects to Spark Store's official infrastructure:
+
+- **App List API**: `https://cdn-d.spark-app.store/{arch}/` - Fetches application catalogs by category
+- **Search API**: `https://search.deepinos.org.cn/appinfo/search` - Searches for applications
+- **Architecture Detection**: Automatically uses correct endpoints for x86_64, aarch64, or loongarch64
+
+### Key Components
+
+- `src/api.rs` - Spark Store API client with async HTTP requests
+- `src/main.rs` - Main application logic and UI
+- Uses `reqwest` for HTTP client, `serde` for JSON parsing, `tokio` for async runtime
 
 ## License
 
