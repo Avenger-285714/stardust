@@ -82,7 +82,16 @@ The application connects to Spark Store's official infrastructure:
 
 - `src/api.rs` - Spark Store API client with async HTTP requests
 - `src/main.rs` - Main application logic and UI
-- Uses `reqwest` for HTTP client, `serde` for JSON parsing, `tokio` for async runtime
+- Uses `reqwest` with rustls-tls for HTTP client, `serde` for JSON parsing
+- Iced provides the async runtime (no explicit tokio dependency needed)
+
+## Troubleshooting
+
+If you encounter issues with data loading or runtime errors, see the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for:
+- Common error diagnoses
+- Network connectivity tests
+- Debug logging instructions
+- Performance tips
 
 ## License
 
