@@ -28,16 +28,6 @@ pub struct AppInfo {
     pub ver: Option<String>,
 }
 
-impl AppInfo {
-    pub fn display_name(&self) -> String {
-        self.name.clone()
-    }
-    
-    pub fn display_desc(&self) -> String {
-        self.desc.clone()
-    }
-}
-
 /// API client for Spark Store
 #[derive(Clone)]
 pub struct SparkStoreApi {
@@ -91,7 +81,8 @@ impl SparkStoreApi {
     
     /// Search for applications
     pub async fn search_apps(&self, keyword: &str) -> Result<Vec<AppInfo>, String> {
-        let url = format!("https://search.deepinos.org.cn/appinfo/search?keyword={}", keyword);
+        let encoded_keyword = urlencoding::encode(keyword);
+        let url = format!("https://search.deepinos.org.cn/appinfo/search?keyword={}", encoded_keyword);
         
         let response = reqwest::get(&url)
             .await

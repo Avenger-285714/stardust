@@ -4,6 +4,10 @@ use iced::widget::{column, container, text, row, button, scrollable, text_input}
 use iced::{Element, Length, Task};
 use api::{AppInfo, SparkStoreApi};
 
+// Constants
+const MAX_DISPLAYED_APPS: usize = 50;
+const MIN_SEARCH_LENGTH: usize = 2;
+
 fn main() -> iced::Result {
     iced::run(Stardust::update, Stardust::view)
 }
@@ -80,7 +84,8 @@ impl Stardust {
         match message {
             Message::SearchChanged(query) => {
                 self.search_query = query;
-                if !self.search_query.is_empty() {
+                // Only trigger search if query meets minimum length requirement
+                if self.search_query.len() >= MIN_SEARCH_LENGTH {
                     return Task::perform(async {}, |_| Message::SearchApps);
                 }
                 Task::none()
@@ -234,7 +239,7 @@ impl Stardust {
             .spacing(10)
             .padding(20);
             
-            for app in self.apps.iter().take(50) {
+            for app in self.apps.iter().take(MAX_DISPLAYED_APPS) {
                 let app_card = container(
                     column![
                         text(&app.name).size(18),
