@@ -31,7 +31,7 @@ pub struct AppInfo {
 /// API client for Spark Store
 #[derive(Clone)]
 pub struct SparkStoreApi {
-    base_url: String,
+    mirrors: Vec<String>,
     arch_dir: String,
 }
 
@@ -43,7 +43,13 @@ impl Default for SparkStoreApi {
 
 impl SparkStoreApi {
     pub fn new() -> Self {
-        // Use Shandong University mirror (working as of 2024)
+        // Multiple mirrors for redundancy (as of December 2024)
+        let mirrors = vec![
+            "https://mirrors.sdu.edu.cn/spark-store-repository/".to_string(),
+            "https://mirrors.sdu.edu.cn/spark-store/".to_string(),
+            "https://gitee.com/spark-store-project/spark-store/raw/master/".to_string(),
+        ];
+        
         let arch_dir = if cfg!(target_arch = "x86_64") {
             "amd64-store"
         } else if cfg!(target_arch = "aarch64") {
@@ -55,7 +61,7 @@ impl SparkStoreApi {
         };
         
         Self {
-            base_url: "https://mirrors.sdu.edu.cn/spark-store-repository/".to_string(),
+            mirrors,
             arch_dir: arch_dir.to_string(),
         }
     }
@@ -67,44 +73,70 @@ impl SparkStoreApi {
             return Err("Invalid category name".to_string());
         }
         
-        let url = format!("{}{}/{}/applist.json", self.base_url, self.arch_dir, category);
+        // Try each mirror in order until one succeeds
+        let mut last_error = String::new();
         
-        eprintln!("Fetching app list from: {}", url);
-        
-        // Create client with timeout
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()
-            .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
-        
-        let response = client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| {
-                if e.is_timeout() {
-                    format!("Request timed out after 30 seconds: {}", url)
-                } else if e.is_connect() {
-                    format!("Failed to connect to server (check network connection): {}", url)
-                } else if e.to_string().contains("dns") || e.to_string().contains("resolve") {
-                    format!("DNS resolution failed (server may be unavailable): {}", url)
-                } else {
-                    format!("Network error: {} - URL: {}", e, url)
+        for (i, base_url) in self.mirrors.iter().enumerate() {
+            let url = format!("{}{}/{}/applist.json", base_url, self.arch_dir, category);
+            
+            eprintln!("[Attempt {}/{}] Fetching app list from: {}", i + 1, self.mirrors.len(), url);
+            
+            // Create client with timeout
+            let client = match reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+            {
+                Ok(c) => c,
+                Err(e) => {
+                    last_error = format!("Failed to create HTTP client: {}", e);
+                    eprintln!("  ✗ {}", last_error);
+                    continue;
                 }
-            })?;
-        
-        if !response.status().is_success() {
-            return Err(format!("Server returned error {}: {}", response.status(), url));
+            };
+            
+            match client.get(&url).send().await {
+                Ok(response) => {
+                    if !response.status().is_success() {
+                        last_error = format!("Server returned error {}", response.status());
+                        eprintln!("  ✗ {}", last_error);
+                        continue;
+                    }
+                    
+                    match response.json::<Vec<AppInfo>>().await {
+                        Ok(apps) => {
+                            eprintln!("  ✓ Successfully loaded {} apps from category: {}", apps.len(), category);
+                            return Ok(apps);
+                        }
+                        Err(e) => {
+                            last_error = format!("Failed to parse JSON: {}", e);
+                            eprintln!("  ✗ {}", last_error);
+                            continue;
+                        }
+                    }
+                }
+                Err(e) => {
+                    if e.is_timeout() {
+                        last_error = format!("Request timed out after 30 seconds");
+                    } else if e.is_connect() {
+                        last_error = format!("Failed to connect to server");
+                    } else if e.to_string().contains("dns") || e.to_string().contains("resolve") {
+                        last_error = format!("DNS resolution failed");
+                    } else {
+                        last_error = format!("Network error: {}", e);
+                    }
+                    eprintln!("  ✗ {}", last_error);
+                    continue;
+                }
+            }
         }
         
-        let apps: Vec<AppInfo> = response
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse JSON from {}: {}", url, e))?;
-        
-        eprintln!("Successfully loaded {} apps from category: {}", apps.len(), category);
-        
-        Ok(apps)
+        // All mirrors failed
+        Err(format!(
+            "Failed to fetch app list after trying {} mirror(s). Last error: {}. \
+            Check your internet connection and firewall settings.",
+            self.mirrors.len(),
+            last_error
+        ))
     }
     
     /// Search for applications

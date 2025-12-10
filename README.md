@@ -13,7 +13,8 @@ This project aims to provide a clean, performant, and modern alternative to the 
 ## Features
 
 - **Modern, responsive UI** built with Iced GUI framework
-- **Real-time data fetching** from Spark Store servers (Shandong University Mirror: https://mirrors.sdu.edu.cn/spark-store-repository/)
+- **Real-time data fetching** with automatic fallback across multiple Spark Store mirrors for maximum reliability
+- **Multiple mirror support**: Automatically tries multiple servers if one fails (Shandong University, Gitee)
 - **Category-based browsing** with 8 categories (All, Development, Graphics, Office, Games, Multimedia, Network, Utilities)
 - **Local search functionality** with real-time filtering
 - **Async/await architecture** for non-blocking network operations
@@ -72,12 +73,16 @@ Stardust follows the Elm architecture pattern used by Iced:
 
 ### API Integration
 
-The application connects to Spark Store's official infrastructure:
+The application connects to Spark Store's infrastructure with automatic fallback:
 
-- **App List API**: `https://mirrors.sdu.edu.cn/spark-store-repository/{arch}/` - Fetches application catalogs by category (Shandong University Mirror)
+- **Multiple Mirror Support**: Automatically tries multiple servers in order:
+  1. `https://mirrors.sdu.edu.cn/spark-store-repository/` (Shandong University - primary)
+  2. `https://mirrors.sdu.edu.cn/spark-store/` (Shandong University - alternative)
+  3. `https://gitee.com/spark-store-project/spark-store/raw/master/` (Gitee mirror - fallback)
 - **Search**: Local filtering of application data for reliable search functionality
 - **Architecture Detection**: Automatically uses correct endpoints for x86_64 (amd64-store), aarch64 (arm64-store), or loongarch64 (loong64-store)
-- **Timeout & Error Handling**: 30-second timeout with detailed error messages for network issues
+- **Timeout & Error Handling**: 30-second timeout per mirror with detailed error messages
+- **Resilient**: Continues trying mirrors until one succeeds or all fail
 
 ### Key Components
 

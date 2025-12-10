@@ -7,6 +7,7 @@
 ### 1. 启用详细日志 (Enable Verbose Logging)
 
 应用程序现在包含调试日志输出。运行时会在控制台显示：
+- 每个镜像服务器的尝试状态（✓ 成功 或 ✗ 失败）
 - API 请求的 URL
 - 加载的应用数量
 - 任何错误信息
@@ -19,25 +20,52 @@ cargo run
 RUST_BACKTRACE=1 cargo run
 ```
 
+应用会显示类似以下的日志：
+```
+[Attempt 1/3] Fetching app list from: https://mirrors.sdu.edu.cn/...
+  ✓ Successfully loaded 150 apps from category: all
+```
+
+或者如果某个镜像失败：
+```
+[Attempt 1/3] Fetching app list from: https://mirrors.sdu.edu.cn/...
+  ✗ DNS resolution failed
+[Attempt 2/3] Fetching app list from: https://mirrors.sdu.edu.cn/spark-store/...
+  ✓ Successfully loaded 150 apps from category: all
+```
+
 ### 2. 常见问题 (Common Issues)
 
-#### 问题: "DNS resolution failed" 或 "Failed to connect"
+#### 问题: "Failed to fetch app list after trying X mirror(s)"
 **原因**: 
 - 网络连接问题
-- 防火墙阻止
+- 防火墙阻止所有镜像服务器
 - DNS 解析失败
-- 服务器不可用
+- 所有镜像服务器暂时不可用
 
 **解决方案**:
+
+应用会自动尝试多个镜像服务器。查看日志确认哪些服务器失败：
+
 ```bash
-# 测试新的镜像服务器（山东大学镜像）
+# 测试主镜像（山东大学）
 curl -v https://mirrors.sdu.edu.cn/spark-store-repository/amd64-store/all/applist.json
+
+# 测试备用镜像
+curl -v https://mirrors.sdu.edu.cn/spark-store/amd64-store/all/applist.json
+
+# 测试 Gitee 镜像
+curl -v https://gitee.com/spark-store-project/spark-store/raw/master/amd64-store/all/applist.json
 
 # 检查 DNS
 nslookup mirrors.sdu.edu.cn
-
-# 如果无法访问，可能需要配置代理或使用其他网络
+nslookup gitee.com
 ```
+
+如果所有镜像都无法访问：
+1. 检查防火墙设置
+2. 尝试使用 VPN 或代理
+3. 检查是否有网络限制
 
 **注意**: 旧服务器 `cdn-d.spark-app.store` 已不再可用。当前使用山东大学镜像服务器。
 
@@ -113,6 +141,15 @@ uname -m
 5. 切换分类会触发新的 API 请求
 
 ## 更新历史 (Change History)
+
+### 2024-12-10 (最新): 多镜像自动切换
+- **添加多镜像支持**：应用现在会自动尝试多个服务器
+  1. `mirrors.sdu.edu.cn/spark-store-repository/` (主镜像)
+  2. `mirrors.sdu.edu.cn/spark-store/` (备用镜像)
+  3. `gitee.com/spark-store-project/spark-store/raw/master/` (Gitee 镜像)
+- **自动故障切换**：如果一个镜像失败，自动尝试下一个
+- **详细日志**：显示每个镜像的尝试状态（✓ 成功 / ✗ 失败）
+- **提高可靠性**：即使某个镜像不可用，仍可从其他镜像获取数据
 
 ### 2024-12-10: 服务器迁移
 - 从 `cdn-d.spark-app.store` 迁移到 `mirrors.sdu.edu.cn/spark-store-repository/`
