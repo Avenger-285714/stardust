@@ -1,5 +1,8 @@
+mod api;
+
 use iced::widget::{column, container, text, row, button, scrollable, text_input};
-use iced::{Element, Length};
+use iced::{Element, Length, Task};
+use api::{AppInfo, SparkStoreApi};
 
 fn main() -> iced::Result {
     iced::run(Stardust::update, Stardust::view)
@@ -10,6 +13,10 @@ enum Message {
     SearchChanged(String),
     CategorySelected(Category),
     AppSelected(String),
+    LoadApps,
+    AppsLoaded(Result<Vec<AppInfo>, String>),
+    SearchApps,
+    SearchResults(Result<Vec<AppInfo>, String>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -37,12 +44,29 @@ impl Category {
             Category::Utilities => "Utilities",
         }
     }
+    
+    fn to_api_category(self) -> &'static str {
+        match self {
+            Category::All => "all",
+            Category::Development => "development",
+            Category::Graphics => "graphics",
+            Category::Office => "office",
+            Category::Games => "games",
+            Category::Multimedia => "multimedia",
+            Category::Network => "network",
+            Category::Utilities => "utilities",
+        }
+    }
 }
 
 #[derive(Default)]
 struct Stardust {
     search_query: String,
     selected_category: Category,
+    apps: Vec<AppInfo>,
+    loading: bool,
+    error_message: Option<String>,
+    api: SparkStoreApi,
 }
 
 impl Default for Category {
@@ -52,23 +76,100 @@ impl Default for Category {
 }
 
 impl Stardust {
-    fn update(&mut self, message: Message) {
+    fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::SearchChanged(query) => {
                 self.search_query = query;
+                if !self.search_query.is_empty() {
+                    return Task::perform(async {}, |_| Message::SearchApps);
+                }
+                Task::none()
             }
             Message::CategorySelected(category) => {
                 self.selected_category = category;
+                self.search_query.clear();
+                self.loading = true;
+                self.error_message = None;
+                
+                let api = self.api.clone();
+                let cat = category.to_api_category().to_string();
+                
+                Task::perform(
+                    async move {
+                        api.fetch_app_list(&cat).await
+                    },
+                    Message::AppsLoaded
+                )
+            }
+            Message::LoadApps => {
+                self.loading = true;
+                self.error_message = None;
+                
+                let api = self.api.clone();
+                let cat = self.selected_category.to_api_category().to_string();
+                
+                Task::perform(
+                    async move {
+                        api.fetch_app_list(&cat).await
+                    },
+                    Message::AppsLoaded
+                )
+            }
+            Message::AppsLoaded(result) => {
+                self.loading = false;
+                match result {
+                    Ok(apps) => {
+                        self.apps = apps;
+                        self.error_message = None;
+                    }
+                    Err(error) => {
+                        self.error_message = Some(error);
+                        self.apps.clear();
+                    }
+                }
+                Task::none()
+            }
+            Message::SearchApps => {
+                if self.search_query.is_empty() {
+                    return Task::none();
+                }
+                
+                self.loading = true;
+                self.error_message = None;
+                
+                let api = self.api.clone();
+                let keyword = self.search_query.clone();
+                
+                Task::perform(
+                    async move {
+                        api.search_apps(&keyword).await
+                    },
+                    Message::SearchResults
+                )
+            }
+            Message::SearchResults(result) => {
+                self.loading = false;
+                match result {
+                    Ok(apps) => {
+                        self.apps = apps;
+                        self.error_message = None;
+                    }
+                    Err(error) => {
+                        self.error_message = Some(error);
+                        self.apps.clear();
+                    }
+                }
+                Task::none()
             }
             Message::AppSelected(app_name) => {
-                // Handle app selection - to be implemented
                 println!("Selected app: {}", app_name);
+                Task::none()
             }
         }
     }
 
     fn view(&self) -> Element<'_, Message> {
-        let title = text("Stardust App Store")
+        let title_text = text("Stardust App Store")
             .size(28);
 
         let search_bar = text_input("Search applications...", &self.search_query)
@@ -89,31 +190,75 @@ impl Stardust {
         .spacing(10)
         .padding(10);
 
-        let content_text = if self.search_query.is_empty() {
-            format!(
-                "Browsing: {}\n\nWelcome to Stardust!\n\nThis is an experimental app store built with Rust and Iced.\nStart by searching for applications or browsing categories.",
-                self.selected_category.as_str()
-            )
+        let content_area: Element<Message> = if self.loading {
+            column![
+                text("Loading applications from Spark Store...").size(16)
+            ]
+            .padding(20)
+            .into()
+        } else if let Some(ref error) = self.error_message {
+            column![
+                text(format!("Error: {}", error)).size(16)
+            ]
+            .padding(20)
+            .into()
+        } else if self.apps.is_empty() {
+            let message = if self.search_query.is_empty() {
+                format!(
+                    "Browsing: {}\n\nWelcome to Stardust!\n\nConnected to Spark Store server ({})\nClick 'Load Apps' button or search for applications.",
+                    self.selected_category.as_str(),
+                    "https://cdn-d.spark-app.store/"
+                )
+            } else {
+                format!(
+                    "No results found for '{}'\n\nTry a different search term.",
+                    self.search_query
+                )
+            };
+            
+            let load_button = button(text("Load Apps"))
+                .on_press(Message::LoadApps)
+                .padding(10);
+            
+            column![
+                text(message).size(16),
+                load_button
+            ]
+            .spacing(20)
+            .padding(20)
+            .into()
         } else {
-            format!(
-                "Searching for '{}' in {}\n\nSearch results would appear here.",
-                self.search_query,
-                self.selected_category.as_str()
-            )
+            let mut app_list = column![
+                text(format!("{} applications found from Spark Store", self.apps.len())).size(16)
+            ]
+            .spacing(10)
+            .padding(20);
+            
+            for app in self.apps.iter().take(50) {
+                let app_card = container(
+                    column![
+                        text(&app.name).size(18),
+                        text(&app.desc).size(14),
+                    ]
+                    .spacing(5)
+                )
+                .padding(10)
+                .width(Length::Fill);
+                
+                app_list = app_list.push(app_card);
+            }
+            
+            app_list.into()
         };
 
-        let content_area = scrollable(
-            container(text(content_text).size(16))
-                .width(Length::Fill)
-                .padding(20)
-        )
-        .height(Length::Fill);
+        let scrollable_content = scrollable(content_area)
+            .height(Length::Fill);
 
         let content = column![
-            title,
+            title_text,
             search_bar,
             categories,
-            content_area,
+            scrollable_content,
         ]
         .spacing(20)
         .padding(20);
