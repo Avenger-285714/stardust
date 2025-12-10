@@ -43,18 +43,19 @@ impl Default for SparkStoreApi {
 
 impl SparkStoreApi {
     pub fn new() -> Self {
+        // Use Shandong University mirror (working as of 2024)
         let arch_dir = if cfg!(target_arch = "x86_64") {
-            "store"
+            "amd64-store"
         } else if cfg!(target_arch = "aarch64") {
-            "aarch64-store"
+            "arm64-store"
         } else if cfg!(target_arch = "loongarch64") {
             "loong64-store"
         } else {
-            "store" // default to x86_64
+            "amd64-store" // default to x86_64
         };
         
         Self {
-            base_url: "https://cdn-d.spark-app.store/".to_string(),
+            base_url: "https://mirrors.sdu.edu.cn/spark-store-repository/".to_string(),
             arch_dir: arch_dir.to_string(),
         }
     }
@@ -70,9 +71,27 @@ impl SparkStoreApi {
         
         eprintln!("Fetching app list from: {}", url);
         
-        let response = reqwest::get(&url)
+        // Create client with timeout
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+        
+        let response = client
+            .get(&url)
+            .send()
             .await
-            .map_err(|e| format!("Failed to fetch app list from {}: {}", url, e))?;
+            .map_err(|e| {
+                if e.is_timeout() {
+                    format!("Request timed out after 30 seconds: {}", url)
+                } else if e.is_connect() {
+                    format!("Failed to connect to server (check network connection): {}", url)
+                } else if e.to_string().contains("dns") || e.to_string().contains("resolve") {
+                    format!("DNS resolution failed (server may be unavailable): {}", url)
+                } else {
+                    format!("Network error: {} - URL: {}", e, url)
+                }
+            })?;
         
         if !response.status().is_success() {
             return Err(format!("Server returned error {}: {}", response.status(), url));
@@ -90,26 +109,24 @@ impl SparkStoreApi {
     
     /// Search for applications
     pub async fn search_apps(&self, keyword: &str) -> Result<Vec<AppInfo>, String> {
-        let encoded_keyword = urlencoding::encode(keyword);
-        let url = format!("https://search.deepinos.org.cn/appinfo/search?keyword={}", encoded_keyword);
+        // Fallback: search by fetching all apps and filtering locally
+        // This is more reliable than depending on external search API
+        eprintln!("Searching locally for: {}", keyword);
         
-        eprintln!("Searching for: {} at {}", keyword, url);
+        // Fetch all apps from the "all" category
+        let all_apps = self.fetch_app_list("all").await?;
         
-        let response = reqwest::get(&url)
-            .await
-            .map_err(|e| format!("Failed to search at {}: {}", url, e))?;
+        let keyword_lower = keyword.to_lowercase();
+        let filtered: Vec<AppInfo> = all_apps
+            .into_iter()
+            .filter(|app| {
+                app.name.to_lowercase().contains(&keyword_lower)
+                    || app.desc.to_lowercase().contains(&keyword_lower)
+            })
+            .collect();
         
-        if !response.status().is_success() {
-            return Err(format!("Search failed with status {}: {}", response.status(), url));
-        }
+        eprintln!("Search found {} results for: {}", filtered.len(), keyword);
         
-        let apps: Vec<AppInfo> = response
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse search results from {}: {}", url, e))?;
-        
-        eprintln!("Search found {} results for: {}", apps.len(), keyword);
-        
-        Ok(apps)
+        Ok(filtered)
     }
 }

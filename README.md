@@ -13,9 +13,9 @@ This project aims to provide a clean, performant, and modern alternative to the 
 ## Features
 
 - **Modern, responsive UI** built with Iced GUI framework
-- **Real-time data fetching** from Spark Store servers (https://cdn-d.spark-app.store/)
+- **Real-time data fetching** from Spark Store servers (Shandong University Mirror: https://mirrors.sdu.edu.cn/spark-store-repository/)
 - **Category-based browsing** with 8 categories (All, Development, Graphics, Office, Games, Multimedia, Network, Utilities)
-- **Search functionality** using Spark Store's search API
+- **Local search functionality** with real-time filtering
 - **Async/await architecture** for non-blocking network operations
 - **Architecture support** for x86_64, aarch64, and loongarch64
 - **Cross-platform** support (Linux, macOS, Windows)
@@ -74,9 +74,10 @@ Stardust follows the Elm architecture pattern used by Iced:
 
 The application connects to Spark Store's official infrastructure:
 
-- **App List API**: `https://cdn-d.spark-app.store/{arch}/` - Fetches application catalogs by category
-- **Search API**: `https://search.deepinos.org.cn/appinfo/search` - Searches for applications
-- **Architecture Detection**: Automatically uses correct endpoints for x86_64, aarch64, or loongarch64
+- **App List API**: `https://mirrors.sdu.edu.cn/spark-store-repository/{arch}/` - Fetches application catalogs by category (Shandong University Mirror)
+- **Search**: Local filtering of application data for reliable search functionality
+- **Architecture Detection**: Automatically uses correct endpoints for x86_64 (amd64-store), aarch64 (arm64-store), or loongarch64 (loong64-store)
+- **Timeout & Error Handling**: 30-second timeout with detailed error messages for network issues
 
 ### Key Components
 
