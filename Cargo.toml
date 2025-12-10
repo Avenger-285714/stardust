@@ -1,0 +1,10 @@
+[package]
+name = "stardust"
+version = "0.1.0"
+edition = "2021"
+authors = ["Stardust Contributors"]
+description = "An experimental project to refactor spark-store using a more modern design"
+license = "GPL-3.0"
+
+[dependencies]
+iced = "0.14"
