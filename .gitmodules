@@ -10,3 +10,6 @@
 	path = Examples/spark-store-tauri
 	url = git@gitee.com:spark-store-project/spark-store-tauri.git
 	branch = main
+[submodule "Examples/gnome-software"]
+	path = Examples/gnome-software
+	url = https://gitlab.gnome.org/GNOME/gnome-software.git
